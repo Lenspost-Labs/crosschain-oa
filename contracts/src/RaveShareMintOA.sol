@@ -17,6 +17,8 @@ contract RaveShareMintOA is
 {
     mapping(uint256 profileId => mapping(uint256 pubId => address mintAddress))
         internal _mintAddress;
+    mapping(uint256 profileId => mapping(uint256 pubId => string mintChain))
+        public _mintChain;
 
     function supportsInterface(
         bytes4 interfaceID
@@ -34,7 +36,8 @@ contract RaveShareMintOA is
         address currency,
         uint256 amount,
         uint256 pubId,
-        uint256 profileId
+        uint256 profileId,
+        string mintChain
     );
 
     event Log(string variable, string message);
@@ -44,17 +47,20 @@ contract RaveShareMintOA is
     address public immutable RAVESHARE_ADDRESS;
     IModuleRegistry public immutable MODULE_GLOBALS;
     AggregatorV3Interface public immutable maticFeed;
+    AggregatorV3Interface public immutable ethFeed;
 
     constructor(
         address hub,
         address moduleGlobals,
         address RECIPIENT,
-        address dataFeed,
+        address maticUSDFeed,
+        address ethUSDFeed,
         address moduleOwner
-    ) HubRestricted(hub) LensModuleMetadata(moduleOwner){
+    ) HubRestricted(hub) LensModuleMetadata(moduleOwner) {
         MODULE_GLOBALS = IModuleRegistry(moduleGlobals);
         RAVESHARE_ADDRESS = RECIPIENT;
-        maticFeed = AggregatorV3Interface(dataFeed);
+        maticFeed = AggregatorV3Interface(maticUSDFeed);
+        ethFeed = AggregatorV3Interface(ethUSDFeed);
     }
 
     function initializePublicationAction(
@@ -63,28 +69,39 @@ contract RaveShareMintOA is
         address /* transactionExecutor */,
         bytes calldata data
     ) external override onlyHub returns (bytes memory) {
-        address mintAddress = abi.decode(data, (address));
+        (address mintAddress, string memory mintChain) = abi.decode(
+            data,
+            (address, string)
+        );
         _mintAddress[profileId][pubId] = mintAddress;
-        emit Log("mintAddress", mintAddress);
+        _mintChain[profileId][pubId] = mintChain;
         return data;
     }
 
-    function getInitChain(
+    function getMintAddress(
         uint256 profileId,
         uint256 pubId
     ) external view returns (address) {
         return _mintAddress[profileId][pubId];
     }
 
+    function getMintChain(
+        uint256 profileId,
+        uint256 pubId
+    ) external view returns (string memory) {
+        return _mintChain[profileId][pubId];
+    }
+
     function processPublicationAction(
         Types.ProcessActionParams calldata params
     ) external override returns (bytes memory) {
         address currency = abi.decode(params.actionModuleData, (address));
+        string memory mintChain = _mintChain[params.publicationActedProfileId][
+            params.publicationActedId
+        ];
         address mint_add = _mintAddress[params.publicationActedProfileId][
             params.publicationActedId
         ];
-
-        emit Log("initChain", mint_add);
 
         (
             uint80 roundID,
@@ -94,12 +111,34 @@ contract RaveShareMintOA is
             uint80 answeredInRound
         ) = maticFeed.latestRoundData();
 
+        (
+            uint80 roundID2,
+            int price2,
+            uint startedAt2,
+            uint timeStamp2,
+            uint80 answeredInRound2
+        ) = ethFeed.latestRoundData();
+
+    // price = 90196782 (0.000090196782 * 10 ** 18)
         emit Log("price", price);
 
-        uint96 mintFee = 1020000;
-        // uint96 maticUSD = 74400000;
-        // uint96 maticFee = (price * mintFee) / maticUSD;
+    // price2 = 234600000000 (0.0002346 * 10 ** 18)
+        emit Log("price2", price2);
+
+        // uint256 mintFee = 0.000777;
+        uint256 mintFee = 0.000777 * 10 ** 6;
+        uint256 maticPrice = uint256(price);
+        uint256 ethPrice = uint256(price2);
+
+        // 9205998
+        // 2025367
+
+        uint256 mintFeeInMatic = (mintFee * ethPrice) / (maticPrice);
+        
+        
+        emit Log("mintFeeInMatic", int(mintFeeInMatic));
         emit Log("currency", currency);
+        emit Log("chain", mintChain);
 
         if (!MODULE_GLOBALS.isErc20CurrencyRegistered(currency)) {
             revert CurrencyNotWhitelisted();
@@ -108,16 +147,17 @@ contract RaveShareMintOA is
         IERC20(currency).transferFrom(
             params.transactionExecutor,
             RAVESHARE_ADDRESS,
-            mintFee
+            mintFeeInMatic
         );
 
         emit ERC20TransactionSuccess(
             params.transactionExecutor,
             mint_add,
             currency,
-            mintFee,
+            mintFeeInMatic,
             params.publicationActedId,
-            params.publicationActedProfileId
+            params.publicationActedProfileId,
+            mintChain
         );
 
         return abi.encode(RAVESHARE_ADDRESS, currency, mintFee);
