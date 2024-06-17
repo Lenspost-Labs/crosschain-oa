@@ -1,6 +1,6 @@
-# Raveshare
+# Cross-Chain OpenAction ( pay on any chain, mint on any chain ) 
 
-### A Raveshare creation
+### A Lenspost-Labs creation
 
 This is a cross-chain open action, which uses off-chain triggers - this can be used with any chain, the off-chain trigger is located at https://github.com/Lenspost-Labs/mint-server 
 
