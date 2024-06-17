@@ -12,8 +12,7 @@ Link to contract on mumbai testnet
 
 Link to contract on polygon mainnet 
 
-[https://polygonscan.com/address/0x410688fc60028C805Bdf8592A6504A0096927911]
-(https://polygonscan.com/address/0x410688fc60028C805Bdf8592A6504A0096927911)
+[https://polygonscan.com/address/0x410688fc60028C805Bdf8592A6504A0096927911](https://polygonscan.com/address/0x410688fc60028C805Bdf8592A6504A0096927911)
 
 #### Steps to deploy 
 
