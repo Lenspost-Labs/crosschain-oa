@@ -5,7 +5,7 @@ import {Script, console2} from "forge-std/Script.sol";
 
 import {RaveShareMintOA} from "src/RaveShareMintOA.sol";
 
-contract HelloWorldScript is Script {
+contract Deploy is Script {
     function setUp() public {}
 
     function run() external {
